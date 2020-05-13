@@ -11,13 +11,14 @@ const config = require('./config');
 // - setup -
 const FILES_DIR = __dirname + '/text-files';
 // create the express app
-_;
+const app = express();
 
 // - use middleware -
 // allow Cross Origin Resource Sharing
 app.use(cors());
 // parse the body
-_;
+app.use(bodyParser.raw({ type: 'text/plain' }));;
+app.use(bodyParser.json());
 
 // https://github.com/expressjs/morgan#write-logs-to-a-file
 const accessLogStream = fs.createWriteStream(
@@ -29,20 +30,20 @@ app.use(morgan('combined', { stream: accessLogStream }));
 app.use(morgan('dev'));
 
 // statically serve the frontend
-_;
+app.use(express.static('public'));
 
 // - declare routes -
 
 // read all file names
-app._('_', (req, res, next) => {
-  fs._(FILES_DIR, (err, list) => {
-    if (_) {
-      res.status(404).end();
-      _;
-    }
+app.get('/files/', (req, res, next) => {
+  fs.readdir(FILES_DIR, (err, list) => {
     if (err) {
       // https://expressjs.com/en/guide/error-handling.html
       next(err);
+      return;
+    }
+    if (!list) {
+      res.status(404).end();
       return;
     }
 
@@ -51,16 +52,16 @@ app._('_', (req, res, next) => {
 });
 
 // read a file
-app._('_', (req, res, next) => {
+app.get('/files/:name', (req, res, next) => {
   const fileName = req.params.name;
-  fs._(`${FILES_DIR}/${fileName}`, _, (err, fileText) => {
-    if (_) {
-      _;
+  fs.readFile(`${FILES_DIR}/${fileName}`,'utf-8', (err, fileText) => {
+    if (!fileText) {
+      res.status(404).end();
       return;
     }
-    if (_) {
-      _;
-      _;
+    if (err) {
+      next(err);
+      return;
     }
 
     const responseData = {
@@ -72,31 +73,37 @@ app._('_', (req, res, next) => {
 });
 
 // write a file
-app._('_', (req, res, next) => {
-  const fileName = _;
-  const fileText = _;
-  fs._(`${FILES_DIR}/${fileName}`, _, err => {
-    if (_) {
-      _;
-      _;
+// POST http://localhost:8080/files/shopping-list
+app.post('/files/:filename', (req, res, next) => {
+  const fileName = req.params.filename;
+  const fileText = req.body.text;
+
+  console.log(req.body)
+
+  fs.writeFile(`${FILES_DIR}/${fileName}`, fileText, err => {
+    if (err) {
+      next(err);
+      return;
     }
 
     // https://stackoverflow.com/questions/33214717/why-post-redirects-to-get-and-put-redirects-to-put
-    res.redirect(303, '/files');
+    res.redirect(303, 'http://localhost:8080/files');
   });
 });
 
 // delete a file
-app._('_', (req, res, next) => {
-  const fileName = _;
-  fs._(`${FILES_DIR}/${fileName}`, err => {
+app.delete('/files/:name', (req, res, next) => {
+  const fileName = req.params.name;
+  fs.unlink(`${FILES_DIR}/${fileName}`, err => {
     if (err && err.code === 'ENOENT') {
-      _;
-      _;
+      console.log(err);
+      next(err)
+      return;
     }
-    if (_) {
-      _;
-      _;
+    if (err) {
+      console.log(err);
+      next(err);
+      return;
     }
 
     res.redirect(303, '/files');
@@ -113,4 +120,9 @@ app.use(function(err, req, res, next) {
 
 // - open server -
 // try to exactly match the message logged by demo.min.js
-_;
+app.listen(
+  config.PORT,
+  () => {
+    console.log(`App listening at http://localhost:${config.PORT} (${config.MODE} mode)`);
+  }
+);;
